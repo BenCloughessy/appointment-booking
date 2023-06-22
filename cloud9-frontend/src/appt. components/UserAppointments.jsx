@@ -66,9 +66,9 @@ const UserAppointments = ({ refresh, refreshAppointments, events, eventMap }) =>
             date,
             start: startTime,
             end: endTime,
-            attendee: appointment.attendees[0].email,
+            attendee: appointment.description,
             id: appointment.id,
-            details: appointment.description
+            // details: appointment.description
             }
 
         return(

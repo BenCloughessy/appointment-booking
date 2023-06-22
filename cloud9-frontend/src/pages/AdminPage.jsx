@@ -28,9 +28,9 @@ import {
         title: event.summary,
         start: event.start.dateTime,
         end: event.end.dateTime,
-        description: event.attendees[0].email,
+        description: event.description,
         id: event.id,
-        details: event.description
+        // details: event.description
         }))
 
         // Admin calendar and UserAppointments expect different event formats, due to lack of foresight. eventMap => AdminCalendar, events => UserAppointments

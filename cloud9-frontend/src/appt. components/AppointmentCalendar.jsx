@@ -64,6 +64,24 @@ const AppointmentCalendar = ({ handleTimeSelectionChange, reset, isModal, servic
         }
       }, [reset]);
 
+       //   Setup valid dates for datetime calendar
+    const isValidDate = (currentDate) => {
+        // Disallow past dates
+        if (currentDate.isBefore(moment().startOf('day'))) {
+            return false
+        }
+
+        // Disallow weekends
+        const day = currentDate.day() // 0-6, 0 is Sunday and 6 is Saturday
+        if (day === 0 || day === 6) {
+            return false
+        }
+
+        // Allow the date if the function hasn't returned false yet
+        return true
+    }
+       
+
     return (
         <>
             {/* Appointment Calendar */}
@@ -72,6 +90,7 @@ const AppointmentCalendar = ({ handleTimeSelectionChange, reset, isModal, servic
                         <DateTime 
                             timeFormat={false}
                             input={false}
+                            isValidDate={ isValidDate }
                             onChange={(value) => {
                                 handleDateChange(value)
                             }}

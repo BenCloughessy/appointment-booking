@@ -1,30 +1,27 @@
-const { calendar } = require("./cloud9EmailAuth")
+const { calendar, authorizeClient } = require("./googleCalendar")
 
 async function createAppointment({ user, datetime, type, guestEmail }) {
     const calendarId = ""; // Replace with your calendar ID
     const startTime = datetime.start
     const endTime = datetime.end
+
+    // Authorize client
+    await authorizeClient()
   
     // Create the calendar event
     const event = {
-        summary: type.service,
-        description: 
-                 (type.addons.length > 0 ? `${type.addons}` : '') + 
-                 (type.facialWaxingOptions.length > 0 ? `${type.facialWaxingOptions}` : ''),
-        start: {
+      // Display type of service, conditionally display addons
+      summary: `${type.service}${(type.addons.length > 0 ? ` - ${type.addons}` : '') + (type.facialWaxingOptions.length > 0 ? ` - ${type.facialWaxingOptions}` : '')}`,
+      description: (guestEmail ? guestEmail : user.email),
+      start: {
         dateTime: startTime,
-        timeZone: 'America/New_York', // Set your timezone
-        },
-        end: {
+        timeZone: 'America/New_York',
+      },
+      end: {
         dateTime: endTime,
-        timeZone: 'America/New_York', // Set your timezone
-        },
-        attendees: [
-        // Add attendees (including the user who wants to book an appointment)
-        {email: guestEmail ? guestEmail : user.email},
-        // Add more attendees if needed
-        ],
-    };
+        timeZone: 'America/New_York',
+      }
+  };
 
   // Insert the event in the shared calendar
   return calendar.events.insert({

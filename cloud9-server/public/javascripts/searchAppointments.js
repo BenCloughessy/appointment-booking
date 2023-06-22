@@ -1,6 +1,6 @@
 const { calendar, authorizeClient } = require("./googleCalendar")
 const { appointmentLength } = require("./appointmentLength")
-const { DateTime, IANAZone } = require('luxon');
+const { DateTime } = require('luxon');
 
 async function searchAppointments(user, day, time, booking, type, email) {
     const calendarId = ""; // Replace with your calendar ID
@@ -69,7 +69,7 @@ async function searchAppointments(user, day, time, booking, type, email) {
     return filteredEvents;
   }
   
-  /**
+ /**
  * Returns all free time blocks for a specific day between 9 AM and 5 PM,
  * broken up into 30-minute blocks.
  *
@@ -78,81 +78,86 @@ async function searchAppointments(user, day, time, booking, type, email) {
  * @param {Number} duration - The length of each appointment in minutes.
  * @return {Promise<Array>} - A promise that resolves to an array of free time blocks.
  */
-  async function filterFreeTime(day, calendar, calendarId, duration) {
+ async function filterFreeTime(day, calendar, calendarId, duration) {
+  // Set up the start and end of the day (9 AM and 5 PM) in New York time
+  const luxonDayStart = DateTime.fromISO(day, { zone: 'America/New_York' }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 });
+  const luxonDayEnd = DateTime.fromISO(day, { zone: 'America/New_York' }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
 
-    // Set up the start and end of the day (9 AM and 5 PM) in New York time
-    const luxonDayStart = DateTime.fromISO(day, { zone: 'America/New_York' }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 });
-    const luxonDayEnd = DateTime.fromISO(day, { zone: 'America/New_York' }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
-  
-    // Convert Luxon DateTime objects to JavaScript Date objects
-    const dayStart = luxonDayStart.toJSDate();
-    const dayEnd = luxonDayEnd.toJSDate();
+  // Convert Luxon DateTime objects to JavaScript Date objects
+  const dayStart = luxonDayStart.toJSDate();
+  const dayEnd = luxonDayEnd.toJSDate();
 
-    // Array to store the resulting free time blocks
-    const freeTimeBlocks = [];
-  
-    // Fetch events from the Google Calendar API
-    const eventsResponse = await calendar.events.list({
-      calendarId,
-      timeMin: dayStart.toISOString(),
-      timeMax: dayEnd.toISOString(),
-      singleEvents: true,
-      orderBy: 'startTime',
-    });
-  
-    const events = eventsResponse.data.items;
-  
-    // Initialize the current time to the start of the day
-    let currentTime = dayStart;
-  
-    // Iterate through events and find free time blocks between them
-    events.forEach((event) => {
-      const eventStart = new Date(event.start.dateTime || event.start.date);
-      const eventEnd = new Date(event.end.dateTime || event.end.date);
-  
-      // Check for free time between the current time and the event start time
-      while (currentTime < eventStart) {
-        const nextBlock = new Date(currentTime);
-        nextBlock.setMinutes(currentTime.getMinutes() + duration);
-  
-        // If the next block is before the event start time, add it as a free time block
-        if (nextBlock <= eventStart) {
-          freeTimeBlocks.push({
-            start: new Date(currentTime),
-            end: new Date(nextBlock),
-          });
-        }
-  
-        // Update the current time to the start of the next block
-        currentTime = nextBlock;
-      }
-  
-      // Update the current time to the end of the event
-      if (currentTime < eventEnd) {
-        currentTime = eventEnd;
-      }
-    });
-  
-    // Check for any remaining free time blocks after the last event
-    while (currentTime < dayEnd) {
+  // Array to store the resulting free time blocks
+  const freeTimeBlocks = [];
+
+  // Fetch events from the Google Calendar API
+  const eventsResponse = await calendar.events.list({
+    calendarId,
+    timeMin: dayStart.toISOString(),
+    timeMax: dayEnd.toISOString(),
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+
+  const events = eventsResponse.data.items;
+
+  // Add a dummy event at the end of the day to cover remaining time
+  events.push({
+    start: { dateTime: dayEnd.toISOString() },
+    end: { dateTime: dayEnd.toISOString() }
+  });
+
+  // Initialize the current time to the start of the day
+  let currentTime = dayStart;
+
+  // Iterate through events and find free time blocks between them
+  events.forEach((event) => {
+    const eventStart = new Date(event.start.dateTime || event.start.date);
+    const eventEnd = new Date(event.end.dateTime || event.end.date);
+
+    // Check for free time between the current time and the event start time
+    while (currentTime < eventStart) {
       const nextBlock = new Date(currentTime);
       nextBlock.setMinutes(currentTime.getMinutes() + duration);
-  
-      // If the next block is before the end of the day, add it as a free time block
-      if (nextBlock <= dayEnd) {
+
+      // If the next block is before the event start time, add it as a free time block
+      if (nextBlock <= eventStart) {
         freeTimeBlocks.push({
           start: new Date(currentTime),
           end: new Date(nextBlock),
         });
       }
-  
-      // Update the current time to the start of the next block
-      currentTime = nextBlock;
+
+      // Update the current time by 30 min
+      currentTime.setMinutes(currentTime.getMinutes() + 30)
     }
-  
-    // Return the array of free time blocks
-    return freeTimeBlocks;
+
+    // Update the current time to the end of the event if its greater
+    if (currentTime < eventEnd) {
+      currentTime = eventEnd;
+    }
+  });
+
+  // Check for any remaining free time blocks after the last event
+  while (currentTime < dayEnd) {
+    const nextBlock = new Date(currentTime);
+    nextBlock.setMinutes(currentTime.getMinutes() + duration);
+
+    // If the next block is before the end of the day, add it as a free time block
+    if (nextBlock <= dayEnd) {
+      freeTimeBlocks.push({
+        start: new Date(currentTime),
+        end: new Date(nextBlock),
+      });
+    }
+
+    // Update the current time to the start of the next block
+    currentTime = nextBlock;
   }
+
+  // Return the array of free time blocks
+  return freeTimeBlocks;
+}
   
   /**
  * Filters an array of events based on the specified query parameters: day, time, type, and email.
@@ -200,13 +205,7 @@ async function searchAppointments(user, day, time, booking, type, email) {
     // output all events matching user email
     if (email) {
         return events.filter((event) => {
-            const { attendees } = event;
-        
-            if (!attendees || attendees.length === 0) {
-              return false;
-            }
-        
-            return attendees.some((attendee) => attendee.email === email);
+          return event.description === email
         });
     }
   }
@@ -233,13 +232,7 @@ async function searchAppointments(user, day, time, booking, type, email) {
         }
 
         const filteredEvents = events.filter((event) => {
-            const { attendees } = event;
-
-            if (!attendees || attendees.length === 0) {
-            return false;
-            }
-
-            return attendees.some((attendee) => attendee.email === userEmail);
+          return event.description === userEmail
         });
 
         return filteredEvents;

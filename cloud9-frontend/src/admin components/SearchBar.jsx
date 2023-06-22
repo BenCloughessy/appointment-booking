@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Datetime from 'react-datetime';
-import { Input, Button } from 'reactstrap';
+import { Input } from 'reactstrap';
 import 'react-datetime/css/react-datetime.css';
 
 const SearchBar = ({ events, eventMap, setUserAppointments, setSearching }) => {
@@ -35,7 +35,7 @@ const SearchBar = ({ events, eventMap, setUserAppointments, setSearching }) => {
             // Search By Email
             if (searchParams.email) {
                 filtered = filtered.filter(event => 
-                    event.attendees[0].email.includes(searchParams.email)
+                    event.description === searchParams.email
                 )
             }
             setSearching(true)
